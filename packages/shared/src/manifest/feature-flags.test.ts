@@ -6,6 +6,7 @@ describe('collectManifestFeatureFlags', () => {
     const flags = collectManifestFeatureFlags({
       FINAGENT_AGENT_PROVIDER: 'pi-runtime',
       FINAGENT_PRIVACY_LEVEL: 'standard',
+      FINAGENT_PI_MODEL: '',
       ANTHROPIC_API_KEY: 'sk-must-not-appear',
       LANGSMITH_PI_API_KEY: 'lsv2_must_not_appear',
     });
@@ -13,6 +14,7 @@ describe('collectManifestFeatureFlags', () => {
       FINAGENT_AGENT_PROVIDER: 'pi-runtime',
       FINAGENT_PRIVACY_LEVEL: 'standard',
     });
+    expect(flags).not.toHaveProperty('FINAGENT_PI_MODEL');
     expect(JSON.stringify(flags)).not.toContain('must-not-appear');
   });
 
@@ -25,5 +27,14 @@ describe('collectManifestFeatureFlags', () => {
     expect(flags.tracingEnabled).toBe(true);
     expect(flags.privacyLevel).toBe('minimal');
     expect(flags.observabilityDegraded).toBe(false);
+  });
+
+  it('booleanizes TRACE_TO_LANGSMITH for TRUE and falsy variants, keeping a defined key', () => {
+    expect(collectManifestFeatureFlags({ TRACE_TO_LANGSMITH: 'TRUE' }).TRACE_TO_LANGSMITH).toBe(true);
+    expect(collectManifestFeatureFlags({ TRACE_TO_LANGSMITH: '0' }).TRACE_TO_LANGSMITH).toBe(false);
+    expect(collectManifestFeatureFlags({ TRACE_TO_LANGSMITH: 'false' }).TRACE_TO_LANGSMITH).toBe(false);
+    const empty = collectManifestFeatureFlags({ TRACE_TO_LANGSMITH: '' });
+    expect('TRACE_TO_LANGSMITH' in empty).toBe(true);
+    expect(empty.TRACE_TO_LANGSMITH).toBe(false);
   });
 });

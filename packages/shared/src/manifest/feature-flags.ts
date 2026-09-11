@@ -20,6 +20,11 @@ export interface ManifestFlagExtras {
   observabilityDegraded?: boolean;
 }
 
+/**
+ * Collects flags from the whitelisted env keys, skipping empty values, and
+ * booleanizes TRACE_TO_LANGSMITH whenever it is defined (any value, including '').
+ * Explicit runtime-derived extras are overlaid last and take precedence.
+ */
 export function collectManifestFeatureFlags(
   env: Record<string, string | undefined>,
   extras: ManifestFlagExtras = {}

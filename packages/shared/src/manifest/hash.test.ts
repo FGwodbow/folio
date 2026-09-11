@@ -13,6 +13,7 @@ describe('fingerprintTools', () => {
   const caps = [
     { id: 'market.quote', toolName: 'get_quote' },
     { id: 'research.news', toolName: 'get_news' },
+    { id: 'market.quote', toolName: 'get_quote' },
   ];
 
   it('sorts and dedupes ids and tool names deterministically', () => {
@@ -21,6 +22,8 @@ describe('fingerprintTools', () => {
     expect(a).toEqual(b);
     expect(a.capabilityIds).toEqual(['market.quote', 'research.news']);
     expect(a.toolNames).toEqual(['get_news', 'get_quote']);
+    expect(a.capabilityIds).toEqual([...new Set(a.capabilityIds)]);
+    expect(a.toolNames).toEqual([...new Set(a.toolNames)]);
     expect(a.fingerprint).toMatch(/^[0-9a-f]{16}$/);
   });
 
