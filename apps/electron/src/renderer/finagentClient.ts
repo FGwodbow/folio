@@ -30,6 +30,9 @@ function createElectronClient(): FinagentClient {
       deleteSession: (sessionId: string) => ipcResult(window.electronAPI.kernel.deleteSession(sessionId)),
       getMessages: (sessionId: string) => ipcResult(window.electronAPI.kernel.getMessages(sessionId)),
       listRuns: (sessionId: string) => ipcResult(window.electronAPI.kernel.listRuns(sessionId)),
+      listManifests: () => ipcResult(window.electronAPI.kernel.listManifests()),
+      getManifest: (runId: string) => ipcResult(window.electronAPI.kernel.getManifest(runId)),
+      compareManifests: (leftRunId: string, rightRunId: string) => ipcResult(window.electronAPI.kernel.compareManifests(leftRunId, rightRunId)),
       startRun: (sessionId: string, content: string, workspaceContext?: WorkspaceContext) =>
         ipcResult(window.electronAPI.kernel.startRun({ sessionId, content, workspaceContext })),
       cancelRun: (sessionId: string, runId: string) =>

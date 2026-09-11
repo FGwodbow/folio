@@ -16,6 +16,7 @@ export interface RunManifestApp {
   version: string;
   build: string;
   channel: string;
+  revision?: string;
 }
 
 export interface RunManifestRuntime {

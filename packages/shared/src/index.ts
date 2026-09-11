@@ -153,3 +153,8 @@ export * from './calibration/index.ts';
 export * from './pulse/index.ts';
 export * from './export/index.ts';
 export * from './evaluation/index.ts';
+export { RunManifestRepository, compareRunManifests } from './manifest/repository.ts';
+export { runManifestToJson } from './manifest/export.ts';
+export { buildRunManifest } from './manifest/builder.ts';
+export { collectManifestFeatureFlags } from './manifest/feature-flags.ts';
+export { fingerprintTools, shortHash } from './manifest/hash.ts';

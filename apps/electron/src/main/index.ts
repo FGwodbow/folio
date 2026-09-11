@@ -120,6 +120,17 @@ ipcMain.handle('sessions:listRuns', async (_event, sessionId: unknown) =>
   toIpcResult(() => agentKernelHost.listRuns(sessionId))
 );
 
+ipcMain.handle('manifests:list', async () =>
+  toIpcResult(() => agentKernelHost.listRunManifests())
+);
+
+ipcMain.handle('manifests:get', async (_event, runId: unknown) =>
+  toIpcResult(() => agentKernelHost.getRunManifest(runId))
+);
+ipcMain.handle('manifests:compare', async (_event, leftRunId: unknown, rightRunId: unknown) =>
+  toIpcResult(() => agentKernelHost.compareRunManifests(leftRunId, rightRunId))
+);
+
 ipcMain.handle('runs:start', async (_event, input: unknown) =>
   toIpcResult(() => agentKernelHost.startRun(input))
 );

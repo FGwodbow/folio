@@ -4,6 +4,7 @@ import type {
   ResearchRunSummary,
   ResearchSynthesizer,
   StrategyId,
+  RunManifestRecorder,
 } from '@finagent/core';
 import { createCodeError } from '../agent/errors.ts';
 import type { SupportedLocale } from '@finagent/core';
@@ -11,6 +12,7 @@ import { isStrategyId } from '../strategies/presets.ts';
 import { planForStrategy } from './planner.ts';
 import { ResearchReportRepository } from './repository.ts';
 import { ResearchRunner } from './runner.ts';
+import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 
 export interface ResearchServiceOptions {
   registry: CapabilityRegistry;
@@ -19,6 +21,8 @@ export interface ResearchServiceOptions {
   now?: () => number;
   /** V5: called after a report is persisted (opinion creation hook). */
   onReport?: (report: ResearchReport) => Promise<void> | void;
+  manifestRecorder?: RunManifestRecorder;
+  manifestContext?: RunManifestCaptureContext;
 }
 
 interface ActiveRun {
@@ -39,6 +43,8 @@ export class ResearchService {
   private readonly now: () => number;
   private readonly runner: ResearchRunner;
   private readonly onReport?: (report: ResearchReport) => Promise<void> | void;
+  private readonly manifestRecorder?: RunManifestRecorder;
+  private readonly manifestContext?: RunManifestCaptureContext;
 
   private readonly active = new Map<string, ActiveRun>();
   private readonly memory = new Map<string, ResearchRunSummary>();
@@ -50,6 +56,8 @@ export class ResearchService {
     this.repository = options.repository;
     this.now = options.now ?? Date.now;
     this.onReport = options.onReport;
+    this.manifestRecorder = options.manifestRecorder;
+    this.manifestContext = options.manifestContext;
     this.runner = new ResearchRunner({
       registry: this.registry,
       synthesizer: this.synthesizer,
@@ -93,6 +101,13 @@ export class ResearchService {
     this.active.set(key, { runId, controller });
     this.memory.set(runId, summary);
     await this.repository.saveRunSummary(summary);
+    await this.manifestRecorder?.capture({
+      runId,
+      kind: 'research',
+      locale,
+      research: { strategyId, plannedCapabilities: summary.plannedCapabilities },
+      retrieval: { provider: 'capability-registry', configVersion: 'v1' },
+    });
 
     void this.execute(key, runId, controller.signal, strategyId, locale);
     return summary;
@@ -160,6 +175,18 @@ export class ResearchService {
         await this.repository.saveReport(result.report);
         await this.onReport?.(result.report);
       }
+      await this.manifestRecorder?.finalize(runId, {
+        status: result.summary.status,
+        finishedAt: result.summary.finishedAt,
+        reportId: result.summary.reportId,
+      });
+    } catch (error) {
+      await this.manifestRecorder?.finalize(runId, {
+        status: 'failed',
+        finishedAt: this.now(),
+        errorCode: error instanceof Error ? error.name : 'RESEARCH_RUN_FAILED',
+      }).catch(() => undefined);
+      throw error;
     } finally {
       this.active.delete(key);
     }

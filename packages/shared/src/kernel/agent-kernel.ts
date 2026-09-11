@@ -1,4 +1,4 @@
-import type { AgentRuntime, ApiResult, ToolDefinition } from '@finagent/core';
+import type { AgentRuntime, ApiResult, ToolDefinition, RunManifestRecorder } from '@finagent/core';
 import type { SkillHub } from '@finagent/skill-hub';
 import { JsonFileStore } from '../storage/json-file-store.ts';
 import { MessageRepository } from '../storage/message-repository.ts';
@@ -14,6 +14,7 @@ import { SessionManager } from './session-manager.ts';
 import { RunManager } from './run-manager.ts';
 import type { ResolveBudgetInput } from './run-budget.ts';
 import type { RunawayPolicy } from './runaway-detector.ts';
+import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 
 export type AgentProvider = 'local' | 'pi-runtime';
 
@@ -44,6 +45,8 @@ export interface AgentKernelOptions {
   searchTools?: string[];
   /** Runaway detector thresholds; unset fields fall back to `defaultRunawayPolicy()`. */
   runaway?: Partial<RunawayPolicy>;
+  manifestRecorder?: RunManifestRecorder;
+  manifestContext?: RunManifestCaptureContext;
 }
 
 /**
@@ -82,6 +85,8 @@ export class AgentKernel {
       budgets: options.budgets,
       searchTools: options.searchTools,
       runaway: options.runaway,
+      manifestRecorder: options.manifestRecorder,
+      manifestContext: options.manifestContext,
     });
   }
 

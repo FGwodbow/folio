@@ -29,6 +29,8 @@ import { loadSessionTraceSources, projectSessionTrace } from '../../lib/traceDat
 import { QuoteCard } from './structured/QuoteCard';
 import { PortfolioRiskCard } from './structured/PortfolioRiskCard';
 import { AgentAmbientField, type AgentMotionState } from '../motion/AgentAmbientField';
+import { RunInfo } from './RunInfo';
+import type { RunManifest } from '@finagent/core';
 
 const folioLogoUrl = new URL('../../assets/folio-logo.png', import.meta.url).href;
 
@@ -101,6 +103,7 @@ export const AgentPanel: React.FC = () => {
   const [sendError, setSendError] = useState<string | null>(null);
   const [traceDialog, setTraceDialog] = useState<{ runId: string; trace: FolioTrace | null } | null>(null);
   const [traceLoading, setTraceLoading] = useState(false);
+  const [runManifest, setRunManifest] = useState<RunManifest | null>(null);
   const bodyEndRef = useRef<HTMLDivElement>(null);
 
   const isRunning = runView !== null && runView.infraError === undefined;
@@ -117,6 +120,13 @@ export const AgentPanel: React.FC = () => {
   useEffect(() => {
     bodyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, runView?.answer, runView?.toolCalls]);
+
+  useEffect(() => {
+    if (!lastRun?.runId || !client.kernel.getManifest) { setRunManifest(null); return; }
+    void client.kernel.getManifest(lastRun.runId).then((result) => {
+      if (result.ok) setRunManifest(result.data ?? null);
+    });
+  }, [client, lastRun?.runId, lastRun?.status]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -292,6 +302,7 @@ export const AgentPanel: React.FC = () => {
             activeSessionId={activeSessionId}
             onOpenTrace={() => void handleOpenTrace()}
           />
+          {runManifest && <RunInfo manifest={runManifest} />}
           <div ref={bodyEndRef} />
         </div>
       </div>

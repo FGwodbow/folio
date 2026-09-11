@@ -68,6 +68,8 @@ import type {
   ToolCall,
   ToolCallRecord,
   TraceReference,
+  RunManifest,
+  RunManifestSummary,
 } from '@finagent/core';
 import { STRATEGY_IDS } from '@finagent/core';
 import { isLocalePreference } from '@finagent/i18n';
@@ -128,6 +130,10 @@ import {
   reportToMarkdown,
   reportToShareCard,
   redactForShare,
+  RunManifestRepository,
+  collectManifestFeatureFlags,
+  fingerprintTools,
+  compareRunManifests,
   computeSkillCalibrations,
   computeStrategyCalibrations,
   EvaluationStore,
@@ -252,6 +258,7 @@ export class AgentKernelHost {
   private readonly performanceService: PerformanceService;
   private readonly automationRules: AutomationRuleRepository;
   private readonly automationRuns: AutomationRunRepository;
+  private readonly manifestRepository: RunManifestRepository;
   private automationTimer: ReturnType<typeof setInterval> | null = null;
   private readonly lastAutomationRunByRule = new Map<string, string>();
   private readonly thesisRepository: ThesisRepository;
@@ -321,6 +328,20 @@ export class AgentKernelHost {
     this.marketData = new MarketDataService({ fetchers: routerFetchers });
     this.registry = createFullRegistry(routerFetchers);
     this.executor = new CapabilityExecutor();
+
+    const appVersion = typeof app.getVersion === 'function' ? app.getVersion() : 'unknown';
+    const appBuild = process.env.FINAGENT_BUILD ?? appVersion;
+    const appChannel = process.env.FINAGENT_CHANNEL ?? 'beta';
+    const appRevision = process.env.FINAGENT_GIT_COMMIT ?? process.env.GIT_COMMIT;
+    const toolFingerprint = fingerprintTools(this.registry.list());
+    const manifestContext = {
+      app: { version: appVersion, build: appBuild, channel: appChannel, ...(appRevision ? { revision: appRevision } : {}) },
+      runtime: { mode: provider === 'local' ? 'local' as const : 'pi-runtime' as const, provider, extensions: [getPiExtensionEntry()] },
+      tools: { registryFingerprint: toolFingerprint.fingerprint, capabilityIds: toolFingerprint.capabilityIds, toolNames: toolFingerprint.toolNames },
+      retrieval: { provider: 'provider-router', configVersion: 'v1' },
+      featureFlags: collectManifestFeatureFlags(process.env, { agentProvider: provider }),
+    };
+    this.manifestRepository = new RunManifestRepository(new JsonFileStore(join(userData, 'store')), manifestContext);
 
     this.researchService = new ResearchService({
       registry: this.registry,
@@ -401,6 +422,8 @@ export class AgentKernelHost {
         requiredEnvKeys: readRequiredLlmEnvKeys(),
         env: () => this.buildRuntimeEnv(),
       },
+      manifestRecorder: this.manifestRepository,
+      manifestContext,
     });
 
     // V7 evaluation & observability: settings load synchronously so the Pi
@@ -421,6 +444,20 @@ export class AgentKernelHost {
     this.alertEngine.start();
     void this.outcomeService.evaluateDue(undefined, this.fetchOutcomeHistory);
     this.startAutomationScheduler();
+  }
+
+  async listRunManifests(): Promise<RunManifestSummary[]> {
+    return this.manifestRepository.listSummaries();
+  }
+
+  async getRunManifest(runId: unknown): Promise<RunManifest | undefined> {
+    return this.manifestRepository.get(requireString(runId, 'runId'));
+  }
+
+  async compareRunManifests(leftRunId: unknown, rightRunId: unknown): Promise<string[]> {
+    const left = await this.manifestRepository.get(requireString(leftRunId, 'leftRunId'));
+    const right = await this.manifestRepository.get(requireString(rightRunId, 'rightRunId'));
+    return compareRunManifests(left, right);
   }
 
   /** Forward kernel events to the window's renderer. */

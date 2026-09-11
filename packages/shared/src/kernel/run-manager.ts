@@ -11,7 +11,9 @@ import type {
   ToolCallRecord,
   WorkspaceContext,
   SupportedLocale,
+  RunManifestRecorder,
 } from '@finagent/core';
+import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 import type { RunRepository } from '../storage/index.ts';
 import type { SessionManager } from './session-manager.ts';
 import { createCodeError, isRuntimeInfraCode, toApiError } from '../agent/errors.ts';
@@ -51,6 +53,8 @@ export interface RunManagerOptions {
   searchTools?: string[];
   /** Runaway detector thresholds; unset fields fall back to `defaultRunawayPolicy()`. */
   runaway?: Partial<RunawayPolicy>;
+  manifestRecorder?: RunManifestRecorder;
+  manifestContext?: RunManifestCaptureContext;
 }
 
 interface ActiveRun {
@@ -84,6 +88,8 @@ export class RunManager {
   private readonly budgetInput: ResolveBudgetInput;
   private readonly searchToolPatterns: readonly string[];
   private readonly runawayPolicy: Partial<RunawayPolicy>;
+  private readonly manifestRecorder?: RunManifestRecorder;
+  private readonly manifestContext?: RunManifestCaptureContext;
   private readonly listeners = new Set<(event: AgentEvent) => void>();
   private activeRun: ActiveRun | null = null;
 
@@ -95,6 +101,8 @@ export class RunManager {
     this.budgetInput = options.budgets ?? {};
     this.searchToolPatterns = options.searchTools ?? [];
     this.runawayPolicy = options.runaway ?? {};
+    this.manifestRecorder = options.manifestRecorder;
+    this.manifestContext = options.manifestContext;
   }
 
   subscribe(listener: (event: AgentEvent) => void): () => void {
@@ -177,6 +185,13 @@ export class RunManager {
       usage: createUsage(),
       runaway: createRunawayState(),
     };
+    if (this.manifestRecorder && this.manifestContext) {
+      await this.manifestRecorder.capture({
+        runId: run.id, kind: 'agent', sessionId, content: text,
+        workspaceContext, locale,
+        budgetLimits: limits,
+      });
+    }
     this.emit({
       id: randomUUID(),
       sessionId,
@@ -273,6 +288,17 @@ export class RunManager {
     run.completedAt = now;
 
     await this.runs.update(run);
+    if (this.manifestRecorder) {
+      await this.manifestRecorder.finalize(run.id, {
+        status: run.status,
+        finishedAt: now,
+        errorCode: run.error?.code,
+      }, {
+        usage: active?.usage,
+        stopReason: run.stopReason,
+        stopDetail: run.stopDetail,
+      });
+    }
 
     // V8.1 §38–39: an *infrastructure* failure (Pi process failed to start /
     // stay up) is not an answer — do not persist an assistant-style message

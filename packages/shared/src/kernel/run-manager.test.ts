@@ -17,6 +17,8 @@ import { RunRepository } from '../storage/run-repository.ts';
 import { SessionRepository } from '../storage/session-repository.ts';
 import { SessionManager } from './session-manager.ts';
 import { RunManager, type RunManagerOptions } from './run-manager.ts';
+import { RunManifestRepository } from '../manifest/repository.ts';
+import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 
 let dir = '';
 let clock = 1000;
@@ -51,6 +53,16 @@ function makeKernel(
     ...extra,
   });
   return { runtime, sessions, runs, store };
+}
+
+function manifestContext(): RunManifestCaptureContext {
+  return {
+    app: { version: 'test', build: 'test', channel: 'test' },
+    runtime: { mode: 'local', provider: 'local', extensions: [] },
+    tools: { registryFingerprint: 'empty', capabilityIds: [], toolNames: [] },
+    retrieval: { provider: 'none', configVersion: 'v1' },
+    featureFlags: {},
+  };
 }
 
 class ScriptedRuntime implements AgentRuntime {
@@ -436,6 +448,19 @@ describe('RunManager budgets and runaway detection (#17)', () => {
     const persisted = await sessions.getRun(session.id, run.id);
     expect(persisted).toMatchObject({ status: 'completed', answer: 'Answer' });
     expect(persisted?.stopReason).toBeUndefined();
+  });
+
+  it('captures and finalizes a manifest for every production run', async () => {
+    const managerBase = makeKernel(completedScript('Answer'));
+    const manifests = new RunManifestRepository(managerBase.store, manifestContext());
+    const manager = makeKernel(completedScript('Answer'), { manifestRecorder: manifests, manifestContext: manifestContext() });
+    const session = await manager.sessions.createSession('Manifest');
+    const run = await manager.runs.startRun(session.id, 'q');
+    await waitFor(async () => !manager.runs.isRunning());
+    const manifest = await manifests.get(run.id);
+    expect(manifest?.runId).toBe(run.id);
+    expect(manifest?.outcome?.status).toBe('completed');
+    expect(manifest?.runtime.mode).toBe('local');
   });
 });
 

@@ -13,6 +13,9 @@ export interface ElectronAPI {
     deleteSession: (sessionId: string) => Promise<unknown>;
     getMessages: (sessionId: string) => Promise<unknown>;
     listRuns: (sessionId: string) => Promise<unknown>;
+    listManifests: () => Promise<unknown>;
+    getManifest: (runId: string) => Promise<unknown>;
+    compareManifests: (leftRunId: string, rightRunId: string) => Promise<unknown>;
     startRun: (input: {
       sessionId: string;
       content: string;
@@ -187,6 +190,9 @@ const electronAPI: ElectronAPI = {
     deleteSession: (sessionId: string) => ipcRenderer.invoke('sessions:delete', sessionId),
     getMessages: (sessionId: string) => ipcRenderer.invoke('sessions:getMessages', sessionId),
     listRuns: (sessionId: string) => ipcRenderer.invoke('sessions:listRuns', sessionId),
+    listManifests: () => ipcRenderer.invoke('manifests:list'),
+    getManifest: (runId: string) => ipcRenderer.invoke('manifests:get', runId),
+    compareManifests: (leftRunId: string, rightRunId: string) => ipcRenderer.invoke('manifests:compare', leftRunId, rightRunId),
     startRun: (input: {
       sessionId: string;
       content: string;

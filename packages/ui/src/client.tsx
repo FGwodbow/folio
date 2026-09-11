@@ -51,6 +51,8 @@ import type {
   WorkspaceContext,
   AppPreferencesSnapshot,
   LocalePreference,
+  RunManifest,
+  RunManifestSummary,
 } from '@finagent/core';
 import type { ConnectionsChannel, HealthChannel } from './client/connections';
 import type { DiagnosticsBundle } from './client/diagnostics';
@@ -168,6 +170,9 @@ export interface FinagentClient {
     deleteSession: (sessionId: string) => Promise<ApiResult<void>>;
     getMessages: (sessionId: string) => Promise<ApiResult<Message[]>>;
     listRuns: (sessionId: string) => Promise<ApiResult<Run[]>>;
+    listManifests?: () => Promise<ApiResult<RunManifestSummary[]>>;
+    getManifest?: (runId: string) => Promise<ApiResult<RunManifest | undefined>>;
+    compareManifests?: (leftRunId: string, rightRunId: string) => Promise<ApiResult<string[]>>;
     startRun: (
       sessionId: string,
       content: string,
@@ -298,6 +303,9 @@ export const fallbackClient: FinagentClient = {
     deleteSession: missingClient('kernel.deleteSession'),
     getMessages: missingClient('kernel.getMessages'),
     listRuns: missingClient('kernel.listRuns'),
+    listManifests: missingClient('kernel.listManifests'),
+    getManifest: missingClient('kernel.getManifest'),
+    compareManifests: missingClient('kernel.compareManifests'),
     startRun: missingClient('kernel.startRun'),
     cancelRun: missingClient('kernel.cancelRun'),
     onAgentEvent: () => () => undefined,
