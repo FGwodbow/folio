@@ -64,6 +64,18 @@ async function waitForTerminal(
   throw new Error(`run ${runId} did not reach a terminal status`);
 }
 
+async function waitForManifestOutcome(
+  manifests: RunManifestRepository,
+  runId: string
+) {
+  for (let i = 0; i < 100; i += 1) {
+    const manifest = await manifests.get(runId);
+    if (manifest?.outcome) return manifest;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`manifest ${runId} did not receive an outcome`);
+}
+
 /** The run summary goes terminal before execute() persists the report. */
 async function waitForReports(
   service: ResearchService,
@@ -118,13 +130,13 @@ describe('ResearchService', () => {
       now: () => 1_700_000_000_000,
     });
 
-    const run = await service.start('NVDA.US', 'value', 'en-US');
+    const run = await service.start('NVDA.US', 'risk-review', 'en-US');
     expect(await waitForTerminal(service, run.id)).toBe('completed');
-    const manifest = await manifests.get(run.id);
+    const manifest = await waitForManifestOutcome(manifests, run.id);
     expect(manifest).toMatchObject({
       runId: run.id,
       kind: 'research',
-      research: { strategyId: 'value' },
+      research: { strategyId: 'risk-review' },
       runtime: { provider: 'deterministic-test', model: 'local-v1' },
       prompt: { templateVersion: 'research-test-v1' },
       outcome: { status: 'completed' },
