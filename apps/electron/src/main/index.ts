@@ -53,7 +53,7 @@ function createWindow() {
 
   // Load the app
   if (isDev && process.env.FINAGENT_FORCE_PROD_LOAD !== '1') {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://127.0.0.1:5173');
     if (process.env.FINAGENT_OPEN_DEVTOOLS === '1') {
       mainWindow.webContents.openDevTools();
     }
