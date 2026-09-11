@@ -476,7 +476,10 @@ export class PiRpcClient {
         cwd: this.cwd,
         env,
         stdio: 'pipe',
-        shell: false,
+        // Windows exposes Bun's launcher as a .cmd shim; Node cannot spawn
+        // that shim with shell=false (it reports EINVAL), while Unix keeps
+        // the safer direct-exec path.
+        shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(this.command),
       });
     } catch (error) {
       throw normalizeSpawnError(error, this.command);
