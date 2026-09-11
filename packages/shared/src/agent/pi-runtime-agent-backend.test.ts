@@ -84,7 +84,7 @@ describe('PiRpcClient', () => {
   it('uses the project default pi runtime command and args', () => {
     process.env.ANTHROPIC_MODEL = 'MiniMax-M2.7';
 
-    expect(readDefaultPiCommand()).toBe('bunx');
+    expect(readDefaultPiCommand()).toBe(process.platform === 'win32' ? 'bunx.cmd' : 'bunx');
     expect(readDefaultPiArgs()).toEqual([
       '@mariozechner/pi-coding-agent',
       '--mode',

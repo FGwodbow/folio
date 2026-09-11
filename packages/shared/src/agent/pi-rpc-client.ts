@@ -747,7 +747,9 @@ function parseArgs(value: string | undefined) {
 }
 
 function readDefaultPiCommand() {
-  return process.env.FINAGENT_PI_COMMAND ?? 'bunx';
+  // Windows PowerShell exposes Bun as bunx.ps1, but Node's spawn() does not
+  // search PowerShell scripts. The generated .cmd shim works in both shells.
+  return process.env.FINAGENT_PI_COMMAND ?? (process.platform === 'win32' ? 'bunx.cmd' : 'bunx');
 }
 
 /**
