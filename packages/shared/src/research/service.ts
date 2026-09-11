@@ -44,6 +44,13 @@ interface ActiveRun {
   controller: AbortController;
 }
 
+const TERMINAL_STATUSES = new Set<ResearchRunSummary['status']>([
+  'completed',
+  'partial',
+  'failed',
+  'cancelled',
+]);
+
 
 /**
  * Application-facing Deep Research API. Owns the run lifecycle: at most one
@@ -207,11 +214,14 @@ export class ResearchService {
         signal,
         locale,
         onStatus: async (summary) => {
+          // Publish the terminal summary only after execute() has persisted
+          // the report and finalized its manifest. This keeps consumers from
+          // observing a completed run whose durable artifacts are incomplete.
+          if (TERMINAL_STATUSES.has(summary.status)) return;
           this.memory.set(runId, summary);
           await this.repository.saveRunSummary(summary);
         },
       });
-      this.memory.set(runId, result.summary);
       if (result.report) {
         await this.repository.saveReport(result.report);
         await this.onReport?.(result.report);
@@ -221,6 +231,8 @@ export class ResearchService {
         finishedAt: result.summary.finishedAt,
         reportId: result.summary.reportId,
       });
+      this.memory.set(runId, result.summary);
+      await this.repository.saveRunSummary(result.summary);
     } catch (error) {
       await this.manifestRecorder?.finalize(runId, {
         status: 'failed',
