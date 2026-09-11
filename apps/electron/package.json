@@ -9,6 +9,7 @@
   "main": "./src/main/index.js",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "bun run build:preload && bun run build:main && electron src/main/index.js",
     "build": "vite build && bun run build:preload && bun run build:main",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
