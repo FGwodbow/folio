@@ -33,7 +33,7 @@ function summaryOf(manifest: RunManifest): RunManifestSummary {
 }
 export function compareRunManifests(left: RunManifest | undefined, right: RunManifest | undefined): string[] {
   if (!left || !right) return ['manifest missing'];
-  const paths = ['app.version','app.build','runtime.mode','runtime.provider','runtime.model','runtime.thinkingLevel','prompt.templateVersion','prompt.systemHash','prompt.fullPromptHash','tools.registryFingerprint','tools.capabilityIds','retrieval.provider','retrieval.configVersion','featureFlags','budget.limits','research.strategyId','research.plannedCapabilities'];
+  const paths = ['app.version','app.build','app.revision','runtime.mode','runtime.provider','runtime.model','runtime.thinkingLevel','runtime.availableThinkingLevels','runtime.modelParams','prompt.templateVersion','prompt.systemHash','prompt.skillIndexHash','prompt.fullPromptHash','tools.registryFingerprint','tools.capabilityIds','tools.toolNames','retrieval.provider','retrieval.configVersion','featureFlags','budget.limits','research.strategyId','research.plannedCapabilities'];
   return paths.filter(path => JSON.stringify(readPath(left, path)) !== JSON.stringify(readPath(right, path))).map(path => `${path}: ${JSON.stringify(readPath(left, path))} -> ${JSON.stringify(readPath(right, path))}`);
 }
 function readPath(value: unknown, path: string): unknown { let current: unknown = value; for (const key of path.split('.')) { if (!current || typeof current !== 'object') return undefined; current = (current as Record<string, unknown>)[key]; } return current; }

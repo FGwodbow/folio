@@ -1,8 +1,10 @@
 import type {
+  AgentPromptDescriptor,
   CapabilityRegistry,
   ResearchReport,
   ResearchRunSummary,
   ResearchSynthesizer,
+  RunManifestRuntime,
   StrategyId,
   RunManifestRecorder,
 } from '@finagent/core';
@@ -23,6 +25,18 @@ export interface ResearchServiceOptions {
   onReport?: (report: ResearchReport) => Promise<void> | void;
   manifestRecorder?: RunManifestRecorder;
   manifestContext?: RunManifestCaptureContext;
+  /** Resolves the effective runtime at start time (provider/model/params). */
+  runtimeDescriptor?: () =>
+    | Partial<RunManifestRuntime>
+    | undefined
+    | Promise<Partial<RunManifestRuntime> | undefined>;
+  /** Describes the synthesis prompt without persisting prompt content. */
+  promptDescriptor?: (input: {
+    symbol: string;
+    strategyId?: StrategyId;
+    plannedCapabilities: string[];
+    locale?: SupportedLocale;
+  }) => AgentPromptDescriptor | undefined | Promise<AgentPromptDescriptor | undefined>;
 }
 
 interface ActiveRun {
@@ -45,6 +59,8 @@ export class ResearchService {
   private readonly onReport?: (report: ResearchReport) => Promise<void> | void;
   private readonly manifestRecorder?: RunManifestRecorder;
   private readonly manifestContext?: RunManifestCaptureContext;
+  private readonly runtimeDescriptor?: ResearchServiceOptions['runtimeDescriptor'];
+  private readonly promptDescriptor?: ResearchServiceOptions['promptDescriptor'];
 
   private readonly active = new Map<string, ActiveRun>();
   private readonly memory = new Map<string, ResearchRunSummary>();
@@ -58,6 +74,8 @@ export class ResearchService {
     this.onReport = options.onReport;
     this.manifestRecorder = options.manifestRecorder;
     this.manifestContext = options.manifestContext;
+    this.runtimeDescriptor = options.runtimeDescriptor;
+    this.promptDescriptor = options.promptDescriptor;
     this.runner = new ResearchRunner({
       registry: this.registry,
       synthesizer: this.synthesizer,
@@ -101,13 +119,36 @@ export class ResearchService {
     this.active.set(key, { runId, controller });
     this.memory.set(runId, summary);
     await this.repository.saveRunSummary(summary);
-    await this.manifestRecorder?.capture({
-      runId,
-      kind: 'research',
-      locale,
-      research: { strategyId, plannedCapabilities: summary.plannedCapabilities },
-      retrieval: { provider: 'capability-registry', configVersion: 'v1' },
-    });
+    if (this.manifestRecorder) {
+      // Manifest capture is best-effort for optional descriptors: an adapter
+      // that cannot describe itself must not prevent a research run starting.
+      let runtime: Partial<RunManifestRuntime> | undefined;
+      let prompt: AgentPromptDescriptor | undefined;
+      try {
+        runtime = await this.runtimeDescriptor?.();
+      } catch {
+        runtime = undefined;
+      }
+      try {
+        prompt = await this.promptDescriptor?.({
+          symbol: key,
+          strategyId,
+          plannedCapabilities: summary.plannedCapabilities,
+          locale,
+        });
+      } catch {
+        prompt = undefined;
+      }
+      await this.manifestRecorder.capture({
+        runId,
+        kind: 'research',
+        locale,
+        research: { strategyId, plannedCapabilities: summary.plannedCapabilities },
+        retrieval: { provider: 'capability-registry', configVersion: 'v1' },
+        ...(runtime ? { runtime } : {}),
+        ...(prompt ? { prompt } : {}),
+      });
+    }
 
     void this.execute(key, runId, controller.signal, strategyId, locale);
     return summary;

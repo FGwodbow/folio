@@ -276,6 +276,7 @@ function assembleReport(args: {
   return {
     id: `report-${runId}`,
     symbol,
+    manifestId: runId,
     ...(strategyId ? { strategyId } : {}),
     generatedAt,
     // Stamp the generating locale so the report records which language produced

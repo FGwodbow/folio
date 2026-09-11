@@ -9,6 +9,7 @@ import type {
   ToolCall,
   ToolCallRecord,
   ToolDefinition,
+  RunManifestRuntime,
 } from '@finagent/core';
 import { LocalFinanceAgentBackend, type LocalFinanceAgentBackendOptions } from './local-finance-agent-backend.ts';
 
@@ -38,6 +39,14 @@ export class LocalRuntimeAdapter implements AgentRuntime {
 
   async getTools(): Promise<ApiResult<ToolDefinition[]>> {
     return this.backend.getTools();
+  }
+
+  async describeRuntime(): Promise<Partial<RunManifestRuntime>> {
+    return { mode: 'local', provider: 'local', model: 'deterministic-local', thinkingLevel: 'off', extensions: [] };
+  }
+
+  async describePrompt(input: AgentRunInput): Promise<import('@finagent/core').AgentPromptDescriptor> {
+    return { templateVersion: 'local-agent-prompt-v1', systemText: 'Deterministic local finance agent.', text: input.content };
   }
 
   async ensureSession(session: {

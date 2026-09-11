@@ -35,6 +35,7 @@ import type {
   ToolCall,
   ToolCallRecord,
   WorkspaceContext,
+  RunManifestCaptureExtras,
 } from '@finagent/core';
 import type { EvaluationBackend } from './backend.ts';
 import {
@@ -63,7 +64,9 @@ export interface ExperimentKernel {
       sessionId: string,
       content: string,
       workspaceContext?: WorkspaceContext,
-      locale?: SupportedLocale
+      locale?: SupportedLocale,
+      budgetOverrides?: import('../kernel/run-budget.ts').RunBudgetLimits,
+      manifestExtras?: RunManifestCaptureExtras
     ): Promise<Run>;
     /** True while a run's terminal persistence is still landing (AgentKernel). */
     isRunning?(): boolean;
@@ -347,7 +350,9 @@ export class ExperimentService {
           session.id,
           caseItem.input.prompt,
           caseItem.input.workspaceContext,
-          caseItem.locale
+          caseItem.locale,
+          undefined,
+          { evaluation: { datasetId: dataset.id, datasetVersion: dataset.version, caseId: caseItem.id } }
         );
       } catch (error) {
         // Infra-level failure (e.g. runtime spawn failed): record a failed run

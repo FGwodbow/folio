@@ -75,6 +75,24 @@ class ScriptedRuntime implements AgentRuntime {
     return { ok: true, data: [] };
   }
 
+  async describeRuntime() {
+    return {
+      mode: 'local' as const,
+      provider: 'scripted-test',
+      model: 'deterministic-v1',
+      extensions: [],
+      modelParams: { temperature: 0 },
+    };
+  }
+
+  async describePrompt(input: { content: string }) {
+    return {
+      templateVersion: 'test-prompt-v1',
+      systemText: 'test system prompt',
+      text: input.content,
+    };
+  }
+
   async ensureSession(session: { id: string; title?: string; sessionPath?: string }): Promise<RuntimeSession> {
     this.ensureSessionCalls.push(session);
     return { sessionId: session.id, status: 'active' };
@@ -460,7 +478,15 @@ describe('RunManager budgets and runaway detection (#17)', () => {
     const manifest = await manifests.get(run.id);
     expect(manifest?.runId).toBe(run.id);
     expect(manifest?.outcome?.status).toBe('completed');
-    expect(manifest?.runtime.mode).toBe('local');
+    expect(manifest?.runtime).toMatchObject({
+      mode: 'local',
+      provider: 'scripted-test',
+      model: 'deterministic-v1',
+      modelParams: { temperature: 0 },
+    });
+    expect(manifest?.prompt).toMatchObject({ templateVersion: 'test-prompt-v1' });
+    expect(manifest?.prompt?.systemHash).toBeTruthy();
+    expect(manifest?.prompt?.fullPromptHash).toBeTruthy();
   });
 });
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { Check, Search } from 'lucide-react';
-import type { ResearchRunSummary, ResearchReport, StrategyId } from '@finagent/core';
+import type { ResearchRunSummary, ResearchReport, StrategyId, RunManifest } from '@finagent/core';
 import { activeSymbolAtom, navSectionAtom } from '../../atoms';
 import { pendingResearchStrategyAtom, researchOriginAtom } from '../../atoms/discoverAtoms';
 import {
@@ -25,6 +25,8 @@ import { NextAction } from '../primitives/NextAction';
 import { semanticCapabilityLabelKey } from '../../lib/agentPresentation';
 import { readPersisted, writePersisted } from '../../lib/persistedPrefs';
 import { ContentReveal } from '../motion/ContentReveal';
+import { useFinagentClient } from '../../client';
+import { RunInfo } from '../agent/RunInfo';
 
 const POLL_MS = 900;
 const SYMBOL_REGEX = /^[A-Z0-9]{1,5}\.(US|HK|SG|SH|SZ|HAS)$/;
@@ -37,6 +39,7 @@ function lastStrategyKey(symbol: string): string {
 /** Deep Research entry: run history for the focused symbol + start/cancel + report. */
 export const ResearchPanel: React.FC = () => {
   const { t } = useTranslation();
+  const client = useFinagentClient();
   const symbol = useAtomValue(activeSymbolAtom);
   const setActiveSymbol = useSetAtom(activeSymbolAtom);
   const setNavSection = useSetAtom(navSectionAtom);
@@ -52,6 +55,19 @@ export const ResearchPanel: React.FC = () => {
   const [symbolInput, setSymbolInput] = useState('');
   const [symbolError, setSymbolError] = useState<string | null>(null);
   const [thesisSaved, setThesisSaved] = useState(false);
+  const [reportManifest, setReportManifest] = useState<RunManifest | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setReportManifest(null);
+    if (!report?.manifestId || !client.kernel.getManifest) return () => { alive = false; };
+    void client.kernel.getManifest(report.manifestId).then((result) => {
+      if (alive && result.ok) setReportManifest(result.data ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [client, report?.manifestId]);
 
   // Discover → Research: a candidate card carries a recommended strategy.
   useEffect(() => {
@@ -314,6 +330,7 @@ export const ResearchPanel: React.FC = () => {
                 )
               }
             />
+            {reportManifest && <RunInfo manifest={reportManifest} />}
           </ContentReveal>
         )}
 

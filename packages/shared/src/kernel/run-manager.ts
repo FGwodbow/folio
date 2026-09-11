@@ -12,6 +12,7 @@ import type {
   WorkspaceContext,
   SupportedLocale,
   RunManifestRecorder,
+  RunManifestCaptureExtras,
 } from '@finagent/core';
 import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 import type { RunRepository } from '../storage/index.ts';
@@ -134,7 +135,8 @@ export class RunManager {
     content: string,
     workspaceContext?: WorkspaceContext,
     locale?: SupportedLocale,
-    budgetOverrides?: RunBudgetLimits
+    budgetOverrides?: RunBudgetLimits,
+    manifestExtras?: RunManifestCaptureExtras
   ): Promise<Run> {
     const text = content.trim();
     if (!text) {
@@ -186,10 +188,17 @@ export class RunManager {
       runaway: createRunawayState(),
     };
     if (this.manifestRecorder && this.manifestContext) {
+      const prompt = await this.runtime.describePrompt?.({
+        sessionId, runId: run.id, content: text, workspaceContext, locale,
+      });
+      const runtime = await this.runtime.describeRuntime?.();
       await this.manifestRecorder.capture({
         runId: run.id, kind: 'agent', sessionId, content: text,
         workspaceContext, locale,
         budgetLimits: limits,
+        ...(prompt ? { prompt } : {}),
+        ...(runtime ? { runtime } : {}),
+        ...(manifestExtras ?? {}),
       });
     }
     this.emit({

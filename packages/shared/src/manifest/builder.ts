@@ -33,7 +33,7 @@ export function buildRunManifest(input: BuildRunManifestInput): RunManifest {
     kind: request.kind,
     createdAt: input.now,
     app: { ...context.app },
-    runtime: { ...context.runtime, extensions: [...context.runtime.extensions] },
+    runtime: { ...context.runtime, ...(request.runtime ?? {}), extensions: [...(request.runtime?.extensions ?? context.runtime.extensions)] },
     tools: {
       registryFingerprint: context.tools.registryFingerprint,
       capabilityIds: [...context.tools.capabilityIds],
@@ -42,7 +42,8 @@ export function buildRunManifest(input: BuildRunManifestInput): RunManifest {
     retrieval: request.retrieval ?? context.retrieval,
     featureFlags: { ...context.featureFlags },
   };
-  if (input.prompt) manifest.prompt = promptInfo(input.prompt, request.locale);
+  const prompt = input.prompt ?? request.prompt;
+  if (prompt) manifest.prompt = promptInfo(prompt, request.locale);
   if (request.research) {
     manifest.research = {
       ...request.research,

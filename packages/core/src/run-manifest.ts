@@ -128,6 +128,10 @@ export interface RunManifestCaptureRequest {
   evaluation?: RunManifestEvaluation;
   retrieval?: RunManifestRetrieval;
   budgetLimits?: Record<string, number>;
+  /** Effective runtime facts captured at start, never resolved later. */
+  runtime?: Partial<RunManifestRuntime>;
+  /** Prompt descriptor is hashed and discarded by the builder. */
+  prompt?: AgentPromptDescriptor;
 }
 
 export type RunManifestCaptureExtras = Pick<

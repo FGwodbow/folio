@@ -16,6 +16,7 @@ import type {
   ToolDefinition,
   WorkspaceContext,
   SupportedLocale,
+  RunManifestRuntime,
 } from '@finagent/core';
 import type { SkillHub } from '@finagent/skill-hub';
 import { FinanceToolRegistry } from './finance-tool-registry.ts';
@@ -108,6 +109,36 @@ export class PiRuntimeAdapter implements AgentRuntime {
 
   async getTools(): Promise<ApiResult<ToolDefinition[]>> {
     return { ok: true, data: this.registry.getTools() };
+  }
+
+  async describeRuntime(): Promise<Partial<RunManifestRuntime>> {
+    const state = await this.getLlmState();
+    const model = state.model;
+    return {
+      mode: 'pi-runtime',
+      provider: model?.provider,
+      model: model?.id,
+      thinkingLevel: state.thinkingLevel,
+      availableThinkingLevels: [...state.availableThinkingLevels],
+      modelParams: {
+        ...(model?.contextWindow !== undefined ? { contextWindow: model.contextWindow } : {}),
+        ...(model?.maxTokens !== undefined ? { maxTokens: model.maxTokens } : {}),
+        ...(model?.reasoning !== undefined ? { reasoning: model.reasoning } : {}),
+      },
+      extensions: [...this.extensions],
+      observabilityDegraded: this.degraded,
+    };
+  }
+
+  async describePrompt(input: AgentRunInput): Promise<import('@finagent/core').AgentPromptDescriptor> {
+    const state = this.getOrCreateState(input.sessionId, this.sessionPathFor(input.sessionId));
+    const text = buildPrompt(input.content, state, input.workspaceContext, this.skillHub, this.readinessProvider, input.locale);
+    const marker = `\nUser request: ${input.content}`;
+    return {
+      templateVersion: 'pi-agent-prompt-v1',
+      systemText: text.endsWith(marker) ? text.slice(0, -marker.length) : text,
+      text,
+    };
   }
 
   /**

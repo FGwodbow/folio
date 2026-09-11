@@ -11,6 +11,8 @@ import { ResearchReportRepository } from './repository.ts';
 import { ResearchService } from './service.ts';
 import { fakeCap } from './test-helpers.ts';
 import { RESEARCH_CAPABILITY_PLAN } from './planner.ts';
+import { RunManifestRepository } from '../manifest/repository.ts';
+import type { RunManifestCaptureContext } from '../manifest/builder.ts';
 
 let dir = '';
 
@@ -32,6 +34,16 @@ function makeService(capabilities: Array<[string, Parameters<typeof fakeCap>[1]?
     repository: new ResearchReportRepository(new JsonFileStore(dir)),
     now: () => 1_700_000_000_000,
   });
+}
+
+function manifestContext(): RunManifestCaptureContext {
+  return {
+    app: { version: 'test', build: 'test', channel: 'test' },
+    runtime: { mode: 'local', provider: 'local', extensions: [] },
+    tools: { registryFingerprint: 'test', capabilityIds: [], toolNames: [] },
+    retrieval: { provider: 'test', configVersion: 'v1' },
+    featureFlags: {},
+  };
 }
 
 async function waitForTerminal(
@@ -83,6 +95,41 @@ describe('ResearchService', () => {
     const reports = await waitForReports(service, 'NVDA.US');
     expect(reports).toHaveLength(1);
     expect(reports[0].symbol).toBe('NVDA.US');
+  });
+
+  it('captures the immutable research manifest with runtime and prompt descriptors', async () => {
+    const registry = createCapabilityRegistry(
+      RESEARCH_CAPABILITY_PLAN.map((id) => fakeCap(id, 'success'))
+    );
+    const manifests = new RunManifestRepository(new JsonFileStore(dir), manifestContext());
+    const service = new ResearchService({
+      registry,
+      synthesizer: new LocalResearchSynthesizer(),
+      repository: new ResearchReportRepository(new JsonFileStore(dir)),
+      manifestRecorder: manifests,
+      runtimeDescriptor: async () => ({
+        mode: 'local', provider: 'deterministic-test', model: 'local-v1', extensions: [],
+      }),
+      promptDescriptor: ({ symbol }) => ({
+        templateVersion: 'research-test-v1',
+        systemText: 'research system',
+        text: symbol,
+      }),
+      now: () => 1_700_000_000_000,
+    });
+
+    const run = await service.start('NVDA.US', 'value', 'en-US');
+    expect(await waitForTerminal(service, run.id)).toBe('completed');
+    const manifest = await manifests.get(run.id);
+    expect(manifest).toMatchObject({
+      runId: run.id,
+      kind: 'research',
+      research: { strategyId: 'value' },
+      runtime: { provider: 'deterministic-test', model: 'local-v1' },
+      prompt: { templateVersion: 'research-test-v1' },
+      outcome: { status: 'completed' },
+    });
+    expect(manifest?.prompt?.fullPromptHash).toBeTruthy();
   });
 
   it('rejects a second start for the same symbol while a run is active', async () => {

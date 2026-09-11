@@ -1,7 +1,7 @@
 // Core type definitions for Finagent
 
 import type { SupportedLocale } from './locale.ts';
-import type { AgentPromptDescriptor } from './run-manifest.ts';
+import type { AgentPromptDescriptor, RunManifestRuntime } from './run-manifest.ts';
 
 export type { SupportedLocale, LocalePreference } from './locale.ts';
 
@@ -502,6 +502,8 @@ export interface AgentRuntime {
   run: (input: AgentRunInput) => AsyncIterable<AgentEvent>;
   /** Prompt descriptor for run manifests; implemented by the Pi runtime. */
   describePrompt?: (input: AgentRunInput) => Promise<AgentPromptDescriptor>;
+  /** Effective provider/model parameters captured at run start. */
+  describeRuntime?: () => Promise<Partial<RunManifestRuntime>>;
   cancel: (input: { sessionId: string; runId: string }) => Promise<void>;
   disposeSession?: (sessionId: string) => Promise<void>;
   dispose: () => Promise<void>;

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { app, Notification, shell, type BrowserWindow } from 'electron';
 import type {
   AgentEvent,
@@ -332,7 +332,10 @@ export class AgentKernelHost {
     const appVersion = typeof app.getVersion === 'function' ? app.getVersion() : 'unknown';
     const appBuild = process.env.FINAGENT_BUILD ?? appVersion;
     const appChannel = process.env.FINAGENT_CHANNEL ?? 'beta';
-    const appRevision = process.env.FINAGENT_GIT_COMMIT ?? process.env.GIT_COMMIT;
+    const appRevision =
+      process.env.FINAGENT_GIT_COMMIT ??
+      process.env.GIT_COMMIT ??
+      resolveGitRevision(getPiCwd());
     const toolFingerprint = fingerprintTools(this.registry.list());
     const manifestContext = {
       app: { version: appVersion, build: appBuild, channel: appChannel, ...(appRevision ? { revision: appRevision } : {}) },
@@ -354,6 +357,14 @@ export class AgentKernelHost {
         void this.outcomeService.createOpinionFromReport(report);
         void this.saveDiffForReport(report);
       },
+      manifestRecorder: this.manifestRepository,
+      manifestContext,
+      runtimeDescriptor: async () => this.kernel.runtime.describeRuntime?.(),
+      promptDescriptor: ({ symbol, strategyId, plannedCapabilities, locale }) => ({
+        templateVersion: 'deep-research-synthesis-v1',
+        systemText: RESEARCH_SYNTHESIS_PROMPT_TEMPLATE,
+        text: JSON.stringify({ symbol, strategyId, plannedCapabilities, locale }),
+      }),
     });
 
     // V5 outcome evaluation: opinions snapshotted from reports, outcomes
@@ -2298,7 +2309,30 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && typeof (error as NodeJS.ErrnoException).code === 'string';
 }
 
+function resolveGitRevision(cwd: string): string | undefined {
+  try {
+    const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    if (result.status !== 0) return undefined;
+    const revision = result.stdout.trim();
+    return revision.length > 0 ? revision : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // -- V3 prompt builders ------------------------------------------------------
+
+/** Stable prompt source marker used by Deep Research run manifests. */
+const RESEARCH_SYNTHESIS_PROMPT_TEMPLATE = [
+  'You are the Folio research synthesizer.',
+  'Analyze structured market data and return only the validated JSON synthesis shape.',
+  'Use only facts present in the capability data; mark missing or failed capabilities unavailable.',
+].join('\n');
 
 function buildSynthesisPrompt(input: ResearchSynthesisInput): string {
   return [
