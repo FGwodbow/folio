@@ -134,7 +134,9 @@ export class PiRpcClient {
     this.env = options.env;
     this.sessionDir = options.sessionDir;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 60_000;
-    this.healthTimeoutMs = options.healthTimeoutMs ?? 5_000;
+    // The first bunx launch may download Pi and its provider dependencies;
+    // allow that cold start to finish before reporting the runtime unhealthy.
+    this.healthTimeoutMs = options.healthTimeoutMs ?? 180_000;
     this.controlTimeoutMs = options.controlTimeoutMs ?? 90_000;
     this.singleToolTimeoutMs = options.singleToolTimeoutMs ?? 30_000;
     this.maxToolCalls = options.maxToolCalls ?? 8;
