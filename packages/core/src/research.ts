@@ -66,6 +66,8 @@ export interface ResearchReport {
    * never translated, this only records which language it was written in.
    */
   locale?: SupportedLocale;
+  /** Run-manifest id (= research run id) for Run Info / reproducibility (#21). */
+  manifestId?: string;
   summary: string;
   stance: ResearchStance;
   /** 0..1. */

@@ -1,6 +1,7 @@
 // Core type definitions for Finagent
 
 import type { SupportedLocale } from './locale.ts';
+import type { AgentPromptDescriptor } from './run-manifest.ts';
 
 export type { SupportedLocale, LocalePreference } from './locale.ts';
 
@@ -499,6 +500,8 @@ export interface AgentRuntime {
     recentSymbols?: string[];
   }) => Promise<RuntimeSession>;
   run: (input: AgentRunInput) => AsyncIterable<AgentEvent>;
+  /** Prompt descriptor for run manifests; implemented by the Pi runtime. */
+  describePrompt?: (input: AgentRunInput) => Promise<AgentPromptDescriptor>;
   cancel: (input: { sessionId: string; runId: string }) => Promise<void>;
   disposeSession?: (sessionId: string) => Promise<void>;
   dispose: () => Promise<void>;
@@ -543,6 +546,7 @@ export interface Skill {
 // ── Folio V3 domains ───────────────────────────────────────────────────────
 export * from './capability.ts';
 export * from './research.ts';
+export * from './run-manifest.ts';
 export * from './thesis.ts';
 export * from './alert-rules.ts';
 export * from './readiness.ts';
